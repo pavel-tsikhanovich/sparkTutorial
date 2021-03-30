@@ -28,6 +28,9 @@ public class PairRddFromRegularRdd {
     }
 
     private static PairFunction<String, String, Integer> getPairFunction() {
-        return s -> new Tuple2<>(s.split(" ")[0], Integer.valueOf(s.split(" ")[1]));
+        return s -> {
+            String[] splits = s.split(" ");
+            return new Tuple2<>(splits[0], Integer.valueOf(splits[1]));
+        };
     }
 }

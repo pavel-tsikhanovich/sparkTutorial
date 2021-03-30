@@ -1,9 +1,19 @@
 package com.sparkTutorial.pairRdd.aggregation.reducebykey.housePrice;
 
 
+import java.io.Serializable;
+import java.util.Map;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+import scala.Tuple2;
+
 public class AverageHousePriceProblem {
 
-    public static void main(String[] args) throws Exception {
+	public static void main(String[] args) throws Exception {
 
         /* Create a Spark program to read the house data from in/RealEstate.csv,
            output the average price for houses with different number of bedrooms.
@@ -34,6 +44,51 @@ public class AverageHousePriceProblem {
 
            3, 1 and 2 mean the number of bedrooms. 325000 means the average price of houses with 3 bedrooms is 325000.
          */
-    }
+		Logger.getLogger("org").setLevel(Level.ERROR);
+		SparkConf conf = new SparkConf().setAppName("averageHousePrice").setMaster("local[*]");
+		JavaSparkContext sparkContext = new JavaSparkContext(conf);
+
+		JavaRDD<String> houses = sparkContext.textFile("in/RealEstate.csv");
+		JavaRDD<String> cleanedLines = houses.filter(line -> !line.contains("Bedrooms"));
+
+		JavaPairRDD<String, HouseCount> bedroomsAndPrices = cleanedLines.mapToPair(line -> {
+			String[] splits = line.split(",");
+			return new Tuple2<>(splits[3], new HouseCount(1, Double.parseDouble(splits[2])));
+		});
+
+		JavaPairRDD<String, HouseCount> bedroomsWithAllPrices = bedroomsAndPrices
+			.reduceByKey((x, y) -> new HouseCount(
+				x.count + y.count,
+				x.totalPrice + y.totalPrice));
+
+		for (Map.Entry<String, HouseCount> housePriceTotal : bedroomsWithAllPrices.collectAsMap().entrySet()) {
+			System.out.println(housePriceTotal.getKey() + " : " + housePriceTotal.getValue());
+		}
+
+		JavaPairRDD<String, Double> averagePrices = bedroomsWithAllPrices.mapValues(house -> house.totalPrice / house.count);
+
+		System.out.println("House Average Price:");
+		for (Map.Entry<String, Double> housePriceAverage : averagePrices.collectAsMap().entrySet()) {
+			System.out.println(housePriceAverage.getKey() + " : " + housePriceAverage.getValue());
+		}
+	}
+
+	private static class HouseCount implements Serializable {
+		private int count;
+		private double totalPrice;
+
+		HouseCount(int count, double totalPrice) {
+			this.count = count;
+			this.totalPrice = totalPrice;
+		}
+
+		@Override
+		public String toString() {
+			return "HouseCount{" +
+				"count=" + count +
+				", totalPrice=" + totalPrice +
+				'}';
+		}
+	}
 
 }

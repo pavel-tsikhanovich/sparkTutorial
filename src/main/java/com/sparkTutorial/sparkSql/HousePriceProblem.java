@@ -1,6 +1,16 @@
 package com.sparkTutorial.sparkSql;
 
 
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SparkSession;
+
+import static org.apache.spark.sql.functions.avg;
+import static org.apache.spark.sql.functions.col;
+import static org.apache.spark.sql.functions.max;
+
 public class HousePriceProblem {
 
         /* Create a Spark program to read the house data from in/RealEstate.csv,
@@ -38,4 +48,19 @@ public class HousePriceProblem {
         |.............................................|
 
          */
+
+	public static void main(String[] args) {
+		Logger.getLogger("org").setLevel(Level.ERROR);
+		SparkSession session = SparkSession.builder().appName("housePrice").master("local[*]").getOrCreate();
+
+		Dataset<Row> houses = session.read().option("header", "true").csv("in/RealEstate.csv");
+
+		Dataset<Row> castedHouses = houses.withColumn("Price", col("Price").cast("long"))
+			.withColumn("Price SQ Ft", col("Price SQ Ft").cast("long"));
+
+		castedHouses.groupBy("Location")
+			.agg(avg("Price SQ Ft"), max("Price"))
+			.orderBy(col("avg(Price SQ Ft)").desc())
+			.show();
+	}
 }
